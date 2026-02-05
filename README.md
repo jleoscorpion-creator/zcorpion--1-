@@ -1,20 +1,44 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# zcorpion
+Aplicación de finanzas personales con integración a Gemini.
 
-# Run and deploy your AI Studio app
+## Ejecutar localmente
 
-This contains everything you need to run your app locally.
+Prerequisitos: Node.js
 
-View your app in AI Studio: https://ai.studio/apps/drive/1fKWTJEPmclN4HxSMpuk8mSVArsIPFmnJ
+1. Instalar dependencias:
 
-## Run Locally
+   ```bash
+   npm install
+   ```
 
-**Prerequisites:**  Node.js
+2. Variables de entorno locales (opcional para pruebas): crea un archivo `.env.local` con las claves necesarias. NO subas este archivo al repositorio.
 
+3. Ejecutar en desarrollo:
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm run dev
+   ```
+
+## Deploy en Netlify
+
+- Asegúrate de que la carpeta `netlify/functions` esté comiteada (la función `gemini.ts` hace las llamadas al API desde el servidor).
+- En Netlify Dashboard → Site settings → Build & deploy → Environment, añade la variable:
+
+  - `GEMINI_API_KEY` = tu clave privada de Gemini
+
+Netlify Functions leerán `process.env.GEMINI_API_KEY` y la clave no quedará expuesta al cliente.
+
+## Notas sobre seguridad
+
+- Mantén las claves reales en las variables de entorno del proveedor (Netlify) y no en el repositorio.
+- Guarda solo `/.env.example` en el repo con nombres de variables, no valores reales.
+
+## Comandos git para commitear y pushear cambios
+
+```bash
+git add .
+git commit -m "Actualizar .gitignore y README; agregar Netlify Function para Gemini"
+git push origin main
+```
+
+Si tienes errores al pushear revisa que la rama remota exista y que tengas permisos.

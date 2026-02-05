@@ -1,24 +1,41 @@
+# Node / dependency folders
+node_modules/
+
+# Build outputs
+dist/
+build/
+dist-ssr/
+
+# Vite cache
+.vite/
+
+# Environment files (do NOT commit real secrets)
+.env
+.env.*.local
+.env.local
+
 # Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
+logs/
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# OS / Editor
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.vscode/
+!.vscode/extensions.json
+.idea/
+
+# Misc
+*.log
+
+# Keep Netlify functions in repo (do not ignore netlify/functions)
+# If you previously ignored `netlify` or similar, ensure functions are tracked.
+
+# Ignore build artifacts from other toolchains (if present)
+bin-debug/
+bin-release/
+[Oo]bj/
+[Bb]in/
+
+# Do NOT ignore these project files: keep config and source tracked
