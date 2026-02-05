@@ -10,10 +10,10 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
+      // Do not inline secret keys into the client bundle. Use server-side functions and
+      // environment variables in the hosting provider (e.g., Netlify) instead.
+      // If you need public env vars, prefix them with VITE_ and load via import.meta.env.
+      define: {},
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
