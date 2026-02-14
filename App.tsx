@@ -7,137 +7,54 @@ import BudgetDetails from './components/BudgetDetails';
 import AIChat from './components/AIChat';
 import Academy from './components/Academy';
 import Settings from './components/Settings';
-import LoginRegister from './components/LoginRegister';
+import Tutorial from './components/Tutorial';
 import { FREQUENCY_LABELS, CURRENCY_SYMBOLS } from './constants';
-import { supabase } from './services/supabaseClient';
-import { authService } from './services/authService';
-import { movementService } from './services/movementService';
 
 const App: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'budget' | 'chat' | 'academy' | 'settings'>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('finanza_dark_mode') === 'true';
   });
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  const getPeriodDays = (freq: Frequency) => {
-    if (freq === Frequency.WEEKLY) return 7;
-    if (freq === Frequency.BIWEEKLY) return 14;
-    return 30;
-  };
-
-  useEffect(() => {
-    // Verificar estado de autenticación
-    const checkAuth = async () => {
-      try {
-        const user = await authService.getCurrentUser();
-        if (user) {
-          setIsAuthenticated(true);
-          setCurrentUser(user);
-          // Cargar datos del usuario desde la BD
-          loadUserData(user.id);
-        }
-      } catch (error) {
-        console.error('Error checking auth:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-
-    // Escuchar cambios de autenticación
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session) {
-          setIsAuthenticated(true);
-          setCurrentUser(session.user);
-          loadUserData(session.user.id);
-        } else {
-          setIsAuthenticated(false);
-          setCurrentUser(null);
-          setProfile(null);
-          setExpenses([]);
-          setGoals([]);
-        }
-      }
-    );
-
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, []);
-
-  const loadUserData = async (userId: string) => {
-    try {
-      // Cargar perfil del usuario
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (profileData) {
-        const userProfile: UserProfile = {
-          username: profileData.display_name || 'Usuario',
-          income: profileData.monthly_income || 0,
-          frequency: profileData.frequency || Frequency.MONTHLY,
-          currency: profileData.currency || 'USD',
-          streak: profileData.streak || 0,
-          lastLoginDate: profileData.last_login_date,
-          reminders: profileData.reminders || {
-            enabled: false,
-            time: '20:00',
-            frequency: 'DAILY',
-            customMessage: '¡Es hora de registrar tus movimientos! No olvides tus gastos fijos 🦂'
-          }
-        };
-        setProfile(userProfile);
-      }
-
-      // Cargar movimientos del usuario
-      const movements = await movementService.getUserMovements(userId);
-      const expenses: Expense[] = movements.map((m: any) => ({
-        id: m.id,
-        amount: m.amount,
-        category: m.category as Category,
-        description: m.description,
-        isFixed: m.frequency ? true : false,
-        frequency: m.frequency ? (m.frequency as Frequency) : undefined,
-        date: m.date
-      }));
-      setExpenses(expenses);
-    } catch (error) {
-      console.error('Error loading user data:', error);
-    }
-  };
 
   useEffect(() => {
     const savedProfile = localStorage.getItem('finanza_profile');
     const savedExpenses = localStorage.getItem('finanza_expenses');
     const savedGoals = localStorage.getItem('finanza_goals');
+    const hasSeenTutorial = localStorage.getItem('finanza_tutorial_seen');
     
-    if (savedProfile && !isAuthenticated) {
-      const parsedProfile: UserProfile = JSON.parse(savedProfile);
-      if (parsedProfile.lastLoginDate) {
-        const lastDate = new Date(parsedProfile.lastLoginDate);
-        const today = new Date();
-        const diffMs = today.getTime() - lastDate.getTime();
-        const diffDays = Math.floor(diffMs / (1000 * 3600 * 24));
-        const limit = getPeriodDays(parsedProfile.frequency);
-        
-        if (diffDays >= limit) {
-          parsedProfile.lastLoginDate = new Date().toISOString();
-        }
+    let currentProfile: UserProfile | null = savedProfile ? JSON.parse(savedProfile) : null;
+    const currentExpenses: Expense[] = savedExpenses ? JSON.parse(savedExpenses) : [];
+
+    if (currentProfile) {
+      if (!hasSeenTutorial) setShowTutorial(true);
+
+      // Lógica de Racha Diaria al Cargar
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (currentProfile.lastStreakDate) {
+        const lastStreak = new Date(currentProfile.lastStreakDate);
+        lastStreak.setHours(0, 0, 0, 0);
+        const diffDays = Math.floor((today.getTime() - lastStreak.getTime()) / (1000 * 3600 * 24));
+        if (diffDays > 1) currentProfile.streak = 0;
+      } else if (currentProfile.streak > 0) {
+        currentProfile.streak = 0;
       }
-      setProfile(parsedProfile);
+
+      // Inicializar gamificación si no existe
+      if (currentProfile.xp === undefined) currentProfile.xp = 0;
+      if (currentProfile.lives === undefined) currentProfile.lives = 5;
+      if (currentProfile.completedLessons === undefined) currentProfile.completedLessons = [];
+
+      currentProfile.lastLoginDate = new Date().toISOString();
+      setProfile(currentProfile);
     }
-    if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
+    
+    if (savedExpenses) setExpenses(currentExpenses);
     if (savedGoals) setGoals(JSON.parse(savedGoals));
   }, []);
 
@@ -148,135 +65,106 @@ const App: React.FC = () => {
     localStorage.setItem('finanza_dark_mode', isDarkMode.toString());
   }, [profile, expenses, goals, isDarkMode]);
 
-  const handleOnboardingComplete = (username: string, income: number, frequency: Frequency, currency: string) => {
-    const newProfile: UserProfile = {
-      username,
-      income,
-      frequency,
-      currency,
-      streak: 0,
-      lastLoginDate: new Date().toISOString(),
-      reminders: {
-        enabled: false,
-        time: '20:00',
-        frequency: 'DAILY',
-        customMessage: '¡Es hora de registrar tus movimientos! No olvides tus gastos fijos 🦂'
+  const updateStreak = (currentProfile: UserProfile) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let newStreak = currentProfile.streak;
+    let newLastStreakDate = currentProfile.lastStreakDate;
+
+    if (!currentProfile.lastStreakDate) {
+      newStreak = 1;
+      newLastStreakDate = today.toISOString();
+    } else {
+      const lastStreak = new Date(currentProfile.lastStreakDate);
+      lastStreak.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((today.getTime() - lastStreak.getTime()) / (1000 * 3600 * 24));
+
+      if (diffDays === 1) {
+        newStreak += 1;
+        newLastStreakDate = today.toISOString();
+      } else if (diffDays > 1) {
+        newStreak = 1;
+        newLastStreakDate = today.toISOString();
       }
-    };
-    setProfile(newProfile);
+    }
+    return { streak: newStreak, lastStreakDate: newLastStreakDate };
   };
 
   const addExpense = (amount: number, category: Category, description: string, isFixed: boolean, frequency?: Frequency) => {
+    if (!profile) return;
     const newExpense: Expense = {
       id: Math.random().toString(36).substr(2, 9),
-      amount,
-      category,
-      description,
-      isFixed,
-      frequency: isFixed ? (frequency || profile?.frequency) : undefined,
+      amount, category, description, isFixed,
+      frequency: isFixed ? (frequency || profile.frequency) : undefined,
       date: new Date().toISOString()
     };
-    
     setExpenses([...expenses, newExpense]);
-
-    // Guardar en Supabase si el usuario está autenticado
-    if (isAuthenticated && currentUser) {
-      movementService.addMovement({
-        user_id: currentUser.id,
-        amount,
-        category: category.toString(),
-        description,
-        date: newExpense.date,
-        frequency: isFixed ? frequency?.toString() : undefined
-      }).catch(err => console.error('Error saving movement:', err));
-    }
-
-    if (category === Category.SAVINGS && profile) {
-      const today = new Date().toDateString();
-      const lastLoginDate = profile.lastLoginDate ? new Date(profile.lastLoginDate).toDateString() : "";
-      let newStreak = profile.streak;
-      if (today !== lastLoginDate) newStreak += 1;
-      setProfile({ ...profile, streak: newStreak, lastLoginDate: new Date().toISOString() });
-    }
+    const streakUpdate = updateStreak(profile);
+    setProfile({ ...profile, ...streakUpdate });
   };
 
-  const deleteExpense = (id: string) => {
-    setExpenses(expenses.filter(e => e.id !== id));
-    
-    // Eliminar de Supabase si está autenticado
-    if (isAuthenticated) {
-      movementService.deleteMovement(id).catch(err => console.error('Error deleting movement:', err));
-    }
+  const completeLesson = (lessonId: string, xpGained: number) => {
+    if (!profile) return;
+    const streakUpdate = updateStreak(profile);
+    const newCompleted = [...new Set([...profile.completedLessons, lessonId])];
+    setProfile({ 
+      ...profile, 
+      ...streakUpdate, 
+      xp: profile.xp + xpGained, 
+      completedLessons: newCompleted 
+    });
   };
-  
+
+  const handleUpdateProfile = (updates: Partial<UserProfile>) => { if (profile) setProfile({ ...profile, ...updates }); };
+  const deleteExpense = (id: string) => setExpenses(expenses.filter(e => e.id !== id));
   const updateGoals = (newGoals: SavingsGoal[]) => setGoals(newGoals);
-  const handleUpdateProfile = (updates: Partial<UserProfile>) => { 
-    if (profile) setProfile({ ...profile, ...updates }); 
-  };
+  const logout = () => { localStorage.clear(); setProfile(null); setExpenses([]); setGoals([]); setActiveTab('dashboard'); };
 
-  const logout = async () => {
-    await authService.signOut();
-    localStorage.clear();
-    setProfile(null); 
-    setExpenses([]); 
-    setGoals([]); 
-    setActiveTab('dashboard');
-    setIsAuthenticated(false);
-    setCurrentUser(null);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600">Cargando...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <LoginRegister onLoginSuccess={() => setIsAuthenticated(true)} />;
-  }
-
-  if (!profile) return <Onboarding onComplete={handleOnboardingComplete} />;
-
-  const currencySymbol = CURRENCY_SYMBOLS[profile.currency] || '$';
-  const periodLabel = profile.frequency === Frequency.WEEKLY ? 'Semanal' : profile.frequency === Frequency.BIWEEKLY ? 'Quincenal' : 'Mensual';
+  if (!profile) return <Onboarding onComplete={(u, i, f, c) => {
+    const p: UserProfile = { 
+      username: u, 
+      income: i, 
+      frequency: f, 
+      currency: c, 
+      streak: 0, 
+      xp: 0, 
+      lives: 5, 
+      completedLessons: [],
+      lastLoginDate: new Date().toISOString(), 
+      lastStreakDate: undefined
+    };
+    setProfile(p);
+    setShowTutorial(true);
+  }} />;
 
   return (
     <div className={`min-h-screen flex flex-col transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      {showTutorial && <Tutorial onComplete={() => { setShowTutorial(false); localStorage.setItem('finanza_tutorial_seen', 'true'); }} isDarkMode={isDarkMode} />}
+      
       <header className={`border-b sticky top-0 z-30 px-6 py-4 flex items-center justify-between transition-colors ${isDarkMode ? 'bg-slate-900 border-slate-800 shadow-xl' : 'bg-white border-slate-100 shadow-sm'}`}>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">ZC</div>
           <h1 className="text-xl font-black tracking-tight italic uppercase">ZCORPION</h1>
         </div>
-        <button onClick={() => setActiveTab('settings')} className={`p-2 rounded-xl border-2 transition-all ${isDarkMode ? 'bg-slate-800 border-indigo-900' : 'bg-slate-50 border-indigo-50'} ${activeTab === 'settings' ? 'ring-2 ring-indigo-500 scale-110' : ''}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-3">
+           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+              <span className="text-xs">⭐</span>
+              <span className="text-xs font-black">{profile.xp}</span>
+           </div>
+           <button onClick={() => setActiveTab('settings')} className={`p-2 rounded-xl border-2 transition-all ${isDarkMode ? 'bg-slate-800 border-indigo-900' : 'bg-slate-50 border-indigo-50'}`}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+              </svg>
+           </button>
+        </div>
       </header>
 
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 mb-24">
-        {activeTab !== 'settings' && (
-          <div className="mb-8 animate-in fade-in slide-in-from-left-4 duration-500">
-            <h2 className="text-3xl font-black italic leading-tight">Hola, {profile.username} 👋</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">
-                Presupuesto {periodLabel}: {currencySymbol}{profile.income.toLocaleString()}
-              </span>
-              <span className="w-1 h-1 rounded-full bg-slate-300"/>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{FREQUENCY_LABELS[profile.frequency]}</span>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'dashboard' && <Dashboard profile={profile} expenses={expenses} onAddExpense={addExpense} isDarkMode={isDarkMode} />}
+        {activeTab === 'dashboard' && <Dashboard profile={profile} expenses={expenses} onAddExpense={addExpense} onNavigateToTab={(tab) => setActiveTab(tab)} isDarkMode={isDarkMode} />}
         {activeTab === 'budget' && <BudgetDetails profile={profile} expenses={expenses} onDeleteExpense={deleteExpense} isDarkMode={isDarkMode} />}
         {activeTab === 'chat' && <AIChat profile={profile} expenses={expenses} goals={goals} onUpdateGoals={updateGoals} isDarkMode={isDarkMode} />}
-        {activeTab === 'academy' && <Academy isDarkMode={isDarkMode} />}
+        {activeTab === 'academy' && <Academy profile={profile} onUpdateProfile={handleUpdateProfile} onCompleteLesson={completeLesson} isDarkMode={isDarkMode} />}
         {activeTab === 'settings' && <Settings isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} onLogout={logout} profile={profile} onUpdateProfile={handleUpdateProfile} />}
       </main>
 

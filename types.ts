@@ -35,6 +35,10 @@ export interface UserProfile {
   currency: string;
   streak: number;
   lastLoginDate: string;
+  lastStreakDate?: string;
+  xp: number;
+  lives: number;
+  completedLessons: string[];
   reminders?: ReminderConfig;
 }
 
