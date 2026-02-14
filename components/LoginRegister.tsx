@@ -48,6 +48,26 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) => {
     }
   };
 
+  const continueAsGuest = () => {
+    const guestProfile = {
+      username: 'Invitado',
+      income: 0,
+      frequency: 'MONTHLY',
+      currency: 'USD',
+      streak: 0,
+      xp: 0,
+      lives: 5,
+      completedLessons: [],
+      lastLoginDate: new Date().toISOString(),
+      lastStreakDate: undefined,
+    } as any;
+
+    localStorage.setItem('finanza_profile', JSON.stringify(guestProfile));
+    // Marca que el usuario es invitado para posibles condicionales
+    localStorage.setItem('finanza_guest', 'true');
+    onLoginSuccess();
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.card}>
@@ -132,6 +152,16 @@ const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) => {
               </button>
             </>
           )}
+        </div>
+        <div style={{ marginTop: 12, textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={continueAsGuest}
+            className={styles.toggleButton}
+            aria-label="Entrar sin cuenta"
+          >
+            Entrar sin cuenta
+          </button>
         </div>
       </div>
     </div>
