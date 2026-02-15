@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
+import { GoogleGenAI } from "@google/genai";
 import { getFinancialAdvice } from '../services/geminiService';
 import { UserProfile, Expense, SavingsGoal } from '../types';
 import { CURRENCY_SYMBOLS } from '../constants';
@@ -25,6 +26,9 @@ const AIChat: React.FC<AIChatProps> = ({ profile, expenses, goals, onUpdateGoals
   const [isChatting, setIsChatting] = useState(false);
   const [newGoalName, setNewGoalName] = useState('');
   const [newGoalTarget, setNewGoalTarget] = useState('');
+  const [isAddingGoal, setIsAddingGoal] = useState(false);
+  const [contributingTo, setContributingTo] = useState<string | null>(null);
+  const [contributionAmount, setContributionAmount] = useState('');
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const currencySymbol = CURRENCY_SYMBOLS[profile.currency] || '$';
@@ -55,19 +59,19 @@ const AIChat: React.FC<AIChatProps> = ({ profile, expenses, goals, onUpdateGoals
     setIsChatting(true);
 
     try {
-      // Llamar a la Netlify Function que maneja la comunicación con Gemini
-      const resp = await fetch("/.netlify/functions/gemini", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: 'chat', message: userText, profile, expenses, goals }),
+      // Create a new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date API key.
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const context = `Usuario: ${profile.username}. Ingreso: ${profile.income} ${profile.currency}. Gastos: ${JSON.stringify(expenses.slice(-10))}. Metas: ${JSON.stringify(goals)}.`;
+      
+      const chat = ai.chats.create({
+        model: 'gemini-3-flash-preview',
+        config: {
+          systemInstruction: `Eres Zcorpion, un asistente financiero experto. Responde preguntas cortas y directas basadas en el contexto del usuario: ${context}. Sé motivador y realista.`
+        }
       });
 
-      if (!resp.ok) {
-        throw new Error(`API error: ${resp.status}`);
-      }
-
-      const data = await resp.json();
-      const botText = data.text || "Lo siento, tuve un problema analizando eso.";
+      const response = await chat.sendMessage({ message: userText });
+      const botText = response.text || "Lo siento, tuve un problema analizando eso.";
       setChatMessages(prev => [...prev, { role: 'model', text: botText }]);
     } catch (err) {
       console.error(err);
@@ -91,6 +95,29 @@ const AIChat: React.FC<AIChatProps> = ({ profile, expenses, goals, onUpdateGoals
     onUpdateGoals([...goals, newGoal]);
     setNewGoalName('');
     setNewGoalTarget('');
+    setIsAddingGoal(false);
+  };
+
+  const handleContribute = (goalId: string) => {
+    const amount = parseFloat(contributionAmount);
+    if (isNaN(amount) || amount <= 0) return;
+
+    const updatedGoals = goals.map(g => {
+      if (g.id === goalId) {
+        return { ...g, currentAmount: g.currentAmount + amount };
+      }
+      return g;
+    });
+
+    onUpdateGoals(updatedGoals);
+    setContributionAmount('');
+    setContributingTo(null);
+  };
+
+  const handleDeleteGoal = (goalId: string) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta meta de ahorro?')) {
+      onUpdateGoals(goals.filter(g => g.id !== goalId));
+    }
   };
 
   return (
@@ -146,61 +173,117 @@ const AIChat: React.FC<AIChatProps> = ({ profile, expenses, goals, onUpdateGoals
         </form>
       </section>
 
-      {/* Goal Management Section restored at the end */}
+      {/* Goal Management Section - Updated with Delete option */}
       <section className={`p-6 rounded-[2rem] border shadow-lg transition-colors ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-        <h3 className="text-xl font-black italic uppercase mb-4 flex items-center gap-2">
-          <span className="text-xl">🎯</span> Metas de Ahorro
-        </h3>
-        
-        <div className="space-y-4 mb-6">
-          {goals.length === 0 ? (
-            <p className="text-xs text-slate-500 italic">No tienes metas activas. ¡Crea la primera!</p>
-          ) : (
-            goals.map(goal => {
-              const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
-              return (
-                <div key={goal.id} className="space-y-2">
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className="text-sm font-bold uppercase italic tracking-tight">{goal.name}</p>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase">{currencySymbol}{goal.currentAmount.toLocaleString()} de {currencySymbol}{goal.targetAmount.toLocaleString()}</p>
-                    </div>
-                    <span className="text-xs font-black text-indigo-500">{progress.toFixed(0)}%</span>
-                  </div>
-                  <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${progress}%` }} />
-                  </div>
-                </div>
-              );
-            })
-          )}
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-black italic uppercase flex items-center gap-2">
+            <span className="text-xl">🎯</span> Metas de Ahorro
+          </h3>
+          <button 
+            onClick={() => setIsAddingGoal(!isAddingGoal)}
+            className="w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+          >
+            {isAddingGoal ? '×' : '+'}
+          </button>
         </div>
-
-        <form onSubmit={handleAddGoal} className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Nueva Meta</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        
+        {isAddingGoal && (
+          <form onSubmit={handleAddGoal} className="mb-6 space-y-3 p-4 rounded-2xl bg-indigo-50 dark:bg-slate-800 animate-in slide-in-from-top-4">
             <input 
               type="text" 
-              placeholder="¿Para qué ahorras? (ej. Viaje)" 
+              placeholder="¿Qué quieres lograr?" 
               value={newGoalName}
               onChange={e => setNewGoalName(e.target.value)}
-              className={`p-3 rounded-xl border-none outline-none text-xs ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}
+              className={`w-full p-3 rounded-xl border-none outline-none text-sm ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}
             />
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{currencySymbol}</span>
               <input 
                 type="number" 
-                placeholder="Monto meta" 
+                placeholder="Monto objetivo" 
                 value={newGoalTarget}
                 onChange={e => setNewGoalTarget(e.target.value)}
-                className={`w-full p-3 pl-7 rounded-xl border-none outline-none text-xs ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}
+                className={`w-full p-3 pl-7 rounded-xl border-none outline-none text-sm ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}
               />
             </div>
-          </div>
-          <button type="submit" className="w-full bg-slate-900 text-white dark:bg-indigo-600 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:scale-[1.01] active:scale-[0.98] transition-all">
-            Crear Meta
-          </button>
-        </form>
+            <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg">
+              Confirmar Meta
+            </button>
+          </form>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {goals.length === 0 && !isAddingGoal && (
+            <p className="text-xs text-slate-500 italic text-center col-span-2 py-4">Define tu próxima meta y deja que Zcorpion te ayude a llegar.</p>
+          )}
+          {goals.map(goal => {
+            const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+            const isContributing = contributingTo === goal.id;
+
+            return (
+              <div key={goal.id} className={`p-5 rounded-3xl border transition-all ${isDarkMode ? 'border-slate-800 bg-slate-800/30' : 'border-slate-100 bg-slate-50'} flex flex-col justify-between hover:shadow-md relative group`}>
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="text-sm font-black uppercase italic tracking-tight">{goal.name}</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase">{currencySymbol}{goal.currentAmount.toLocaleString()} / {currencySymbol}{goal.targetAmount.toLocaleString()}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-indigo-500 bg-indigo-500/10 px-2 py-1 rounded-lg">{progress.toFixed(0)}%</span>
+                    
+                    <button 
+                      onClick={() => setContributingTo(isContributing ? null : goal.id)}
+                      title="Sumar fondos"
+                      className={`p-1.5 rounded-lg transition-colors ${isContributing ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-indigo-500 hover:text-white'}`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9 9V5a1 1 0 112 0v4h4a1 1 0 110 2h-4v4a1 1 0 11-2 0v-4H5a1 1 0 110-2h4z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+
+                    <button 
+                      onClick={() => handleDeleteGoal(goal.id)}
+                      title="Eliminar meta"
+                      className="p-1.5 rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {isContributing && (
+                  <div className="mt-2 mb-4 flex gap-2 animate-in slide-in-from-top-2 duration-200">
+                    <div className="relative flex-1">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">{currencySymbol}</span>
+                      <input 
+                        type="number"
+                        placeholder="Monto"
+                        autoFocus
+                        value={contributionAmount}
+                        onChange={(e) => setContributionAmount(e.target.value)}
+                        className={`w-full p-2 pl-5 rounded-xl border-none outline-none text-xs font-bold ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}
+                      />
+                    </div>
+                    <button 
+                      onClick={() => handleContribute(goal.id)}
+                      className="bg-indigo-600 text-white px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm active:scale-95"
+                    >
+                      Sumar
+                    </button>
+                  </div>
+                )}
+
+                <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-2">
+                  <div 
+                    className="h-full bg-indigo-500 transition-all duration-1000" 
+                    style={{ width: `${progress}%` }} 
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
