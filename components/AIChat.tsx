@@ -1,4 +1,4 @@
-
+ 
 import React, { useEffect, useState, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { getFinancialAdvice } from '../services/geminiService';
@@ -59,19 +59,20 @@ const AIChat: React.FC<AIChatProps> = ({ profile, expenses, goals, onUpdateGoals
     setIsChatting(true);
 
     try {
-      // Create a new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date API key.
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const context = `Usuario: ${profile.username}. Ingreso: ${profile.income} ${profile.currency}. Gastos: ${JSON.stringify(expenses.slice(-10))}. Metas: ${JSON.stringify(goals)}.`;
-      
-      const chat = ai.chats.create({
-        model: 'gemini-3-flash-preview',
-        config: {
-          systemInstruction: `Eres Zcorpion, un asistente financiero experto. Responde preguntas cortas y directas basadas en el contexto del usuario: ${context}. Sé motivador y realista.`
-        }
+   
+      // Llamar a la Netlify Function que maneja la comunicación con Gemini
+      const resp = await fetch("/.netlify/functions/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: 'chat', message: userText, profile, expenses, goals }),
       });
 
-      const response = await chat.sendMessage({ message: userText });
-      const botText = response.text || "Lo siento, tuve un problema analizando eso.";
+      if (!resp.ok) {
+        throw new Error(`API error: ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      const botText = data.text || "Lo siento, tuve un problema analizando eso.";
       setChatMessages(prev => [...prev, { role: 'model', text: botText }]);
     } catch (err) {
       console.error(err);
@@ -80,6 +81,7 @@ const AIChat: React.FC<AIChatProps> = ({ profile, expenses, goals, onUpdateGoals
       setIsChatting(false);
     }
   };
+
 
   const handleAddGoal = (e: React.FormEvent) => {
     e.preventDefault();
