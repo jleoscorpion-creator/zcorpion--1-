@@ -15,12 +15,13 @@ const FinancialSummary: React.FC<FinancialSummaryProps> = ({ profile, expenses, 
   const currencySymbol = CURRENCY_SYMBOLS[profile.currency] || '$';
 
   const now = new Date();
+  const cycleMovements = profile.movements || [];
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - now.getDay());
 
-  const monthExpenses = expenses.filter(e => new Date(e.date) >= startOfMonth);
-  const weekExpenses = expenses.filter(e => new Date(e.date) >= startOfWeek);
+  const monthExpenses = cycleMovements.filter(m => m.type === 'expense' && new Date(m.date) >= startOfMonth);
+  const weekExpenses = cycleMovements.filter(m => m.type === 'expense' && new Date(m.date) >= startOfWeek);
 
   const totalMonth = monthExpenses.reduce((acc, curr) => acc + curr.amount, 0);
   const totalWeek = weekExpenses.reduce((acc, curr) => acc + curr.amount, 0);
@@ -35,8 +36,10 @@ const FinancialSummary: React.FC<FinancialSummaryProps> = ({ profile, expenses, 
 
   const income = getIncomeByPeriod();
 
-  const getCatTotal = (exps: Expense[], cat: Category) => 
-    exps.filter(e => e.category === cat).reduce((acc, curr) => acc + curr.amount, 0);
+  const getCatTotal = (movements: Movement[], cat: Category) => 
+    movements.filter(m => m.type === 'expense' && m.category === cat).reduce((acc, curr) => acc + curr.amount, 0);
+
+  const budgetSplit = profile.budgetSplit || { needs: 0.5, wants: 0.3, savings: 0.2 };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -57,7 +60,7 @@ const FinancialSummary: React.FC<FinancialSummaryProps> = ({ profile, expenses, 
             <div className="flex justify-between items-end">
               <div>
                 <p className="text-3xl font-black">{currencySymbol}{totalMonth.toLocaleString()}</p>
-                <p className="text-xs text-slate-500 font-bold uppercase">Gastado de {currencySymbol}{income.monthly.toLocaleString()}</p>
+                <p className="text-xs text-slate-500 font-bold uppercase">Gastado de {currencySymbol}{(income.monthly * (budgetSplit.needs + budgetSplit.wants)).toLocaleString()} (Gasto)</p>
               </div>
               <div className={`text-xs font-black px-3 py-1 rounded-full ${totalMonth > income.monthly ? 'bg-rose-500/20 text-rose-500' : 'bg-emerald-500/20 text-emerald-500'}`}>
                 {((totalMonth / income.monthly) * 100).toFixed(0)}%
