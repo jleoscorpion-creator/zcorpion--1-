@@ -706,4 +706,3 @@ interface GameObject {
   health?: number;
 }
 
-export default ExpenseDestructor;
