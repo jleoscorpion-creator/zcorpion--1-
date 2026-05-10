@@ -78,6 +78,30 @@ const AIChat: React.FC<AIChatProps> = ({ profile, expenses, goals, onUpdateGoals
     setUserInput('');
   };
 
+  try {
+   
+      // Llamar a la Netlify Function que maneja la comunicación con Gemini
+      const resp = await fetch("/.netlify/functions/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: 'chat', message: userText, profile, expenses, goals }),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`API error: ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      const botText = data.text || "Lo siento, tuve un problema analizando eso.";
+      setChatMessages(prev => [...prev, { role: 'model', text: botText }]);
+    } catch (err) {
+      console.error(err);
+      setChatMessages(prev => [...prev, { role: 'model', text: "Ocurrió un error con la conexión a la IA." }]);
+    } finally {
+      setIsChatting(false);
+    }
+  };
+
   const onFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleSendMessageInternal();
