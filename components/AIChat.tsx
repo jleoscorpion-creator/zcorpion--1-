@@ -71,12 +71,11 @@ const AIChat: React.FC<AIChatProps> = ({ profile, expenses, goals, onUpdateGoals
     }
   }, [messages, isChatting]);
 
-  const handleSendMessageInternal = (customInput?: string, payWithXP: boolean = false) => {
+  const handleSendMessageInternal = async (customInput?: string, payWithXP: boolean = false) => {
     const textToSend = customInput || userInput;
     if (!textToSend.trim() || isChatting) return;
     onSendMessage(textToSend, payWithXP);
     setUserInput('');
-  };
 
   try {
    
