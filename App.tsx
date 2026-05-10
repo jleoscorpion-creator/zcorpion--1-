@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { UserProfile, Expense, Frequency, Category, SavingsGoal, Movement } from './types';
 import Onboarding from './components/Onboarding';
 import Dashboard from './components/Dashboard';
