@@ -31,6 +31,11 @@ const STEPS = [
     title: "Metas y Chat AI",
     description: "Zcorpion no solo mira, también aconseja. En la pestaña Chat AI puedes crear metas de ahorro, sumarles dinero poco a poco y recibir consejos personalizados de nuestra inteligencia artificial.",
     icon: "🤖"
+  },
+  {
+    title: "Diamantes y Recompensas 💎",
+    description: "Gana diamantes completando lecciones en la Academia y alcanzando tus metas de ahorro cada periodo. ¡Colecciónalos para demostrar tu disciplina!",
+    icon: "💎"
   }
 ];
 
