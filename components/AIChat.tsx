@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
+import { GoogleGenAl } from "@google/genai";
 import { getFinancialAdvice } from '../services/geminiService';
 import { UserProfile, Expense, SavingsGoal, ChatMessage, SavedChat } from '../types';
 import { 
