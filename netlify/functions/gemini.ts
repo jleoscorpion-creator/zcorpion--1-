@@ -1,7 +1,7 @@
 import { Handler } from "@netlify/functions";
 import { GoogleGenAI } from "@google/genai";
 
-const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event, context) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ error: "Método no permitido" }) };
   }
