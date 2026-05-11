@@ -1,5 +1,5 @@
 import { Handler } from "@netlify/functions";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const handler: Handler = async (event, context) => {
   if (event.httpMethod !== "POST") {
@@ -15,7 +15,11 @@ export const handler: Handler = async (event, context) => {
       return { statusCode: 500, body: JSON.stringify({ error: "API key no configurada" }) };
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+const model = genAI.getGenerativeModel({
+  model: "gemini-1.5-flash",
+});
 
     // Modo chat: interactuar con un mensaje del usuario
     if (body.mode === "chat") {
