@@ -63,9 +63,12 @@ const model = genAI.getGenerativeModel({
 
     const result = await model.generateContent(prompt);
     const response = await result.response;      
-    const data = JSON.parse(response.text() || '{"tips": []}');
+    const text = response.text();
 
-    return { statusCode: 200, body: JSON.stringify({ tips: data.tips }) };
+    return {
+    statusCode: 200,
+    body: JSON.stringify({ text }),
+};
   } catch (error) {
     console.error("Error en Gemini:", error);
     return {
