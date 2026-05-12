@@ -82,4 +82,4 @@ const model = genAI.getGenerativeModel({
   }
 };
 
-export { handler };
+
