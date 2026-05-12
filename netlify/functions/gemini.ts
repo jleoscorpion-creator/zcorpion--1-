@@ -30,7 +30,7 @@ const model = genAI.getGenerativeModel({
       )}. Metas: ${JSON.stringify(goals || [])}.`;
 
       const chat = ai.chats.create({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         config: {
           systemInstruction: `Eres Zcorpion, un asistente financiero experto. Responde breve y claramente. Contexto: ${contextInfo}`,
         },
@@ -65,7 +65,7 @@ const model = genAI.getGenerativeModel({
   `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: { responseMimeType: "application/json" },
     });
