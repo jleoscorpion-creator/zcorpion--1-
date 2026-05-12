@@ -62,12 +62,7 @@ const model = genAI.getGenerativeModel({
   `;
 
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-      model: "gemini-2.0-flash",
-      contents: prompt,
-      config: { responseMimeType: "application/json" },
-    });
-
+    const response = await result.response;      
     const data = JSON.parse(response.text() || '{"tips": []}');
 
     return { statusCode: 200, body: JSON.stringify({ tips: data.tips }) };
