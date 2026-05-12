@@ -29,15 +29,12 @@ const model = genAI.getGenerativeModel({
         (expenses || []).slice(-10)
       )}. Metas: ${JSON.stringify(goals || [])}.`;
 
-      const chat = ai.chats.create({
-        model: "gemini-2.0-flash",
-        config: {
-          systemInstruction: `Eres Zcorpion, un asistente financiero experto. Responde breve y claramente. Contexto: ${contextInfo}`,
-        },
-      });
+      
+      const result = await model.generateContent(prompt);
 
-      const response = await chat.sendMessage({ message });
-      const text = response?.text || "";
+      const response = await result.response;
+
+      const text = response.text();
 
       return { statusCode: 200, body: JSON.stringify({ text }) };
     }
@@ -64,13 +61,14 @@ const model = genAI.getGenerativeModel({
     }
   `;
 
-    const response = await ai.models.generateContent({
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
       model: "gemini-2.0-flash",
       contents: prompt,
       config: { responseMimeType: "application/json" },
     });
 
-    const data = JSON.parse(response.text || '{"tips": []}');
+    const data = JSON.parse(response.text() || '{"tips": []}');
 
     return { statusCode: 200, body: JSON.stringify({ tips: data.tips }) };
   } catch (error) {
