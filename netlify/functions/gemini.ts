@@ -73,7 +73,9 @@ const model = genAI.getGenerativeModel({
     console.error("Error en Gemini:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Error procesando la solicitud", details: error instanceof Error ? error.message : "" }),
+      body: JSON.stringify({
+  error: error instanceof Error ? error.message : String(error)
+})
     };
   }
 };
